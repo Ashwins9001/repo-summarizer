@@ -1,0 +1,8 @@
+langchain
+langgraph
+langchain-community
+faiss-cpu
+sentence-transformers
+ollama
+gitpython
+tqdm
