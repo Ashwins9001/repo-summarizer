@@ -1,4 +1,4 @@
-from langchain.schema import HumanMessage
+from langchain.schema.messages import HumanMessage
 
 def retrieve_agent(state):
     query = state["query"]

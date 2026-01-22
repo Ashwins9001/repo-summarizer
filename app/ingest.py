@@ -1,4 +1,4 @@
-from langchain.schema import Document
+from langchain.docstore.document import Document
 from git import Repo
 from pathlib import Path
 import tempfile
