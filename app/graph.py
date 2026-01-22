@@ -1,30 +1,43 @@
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, START, END
 from agents import retrieve_agent, summarize_agent, architect_agent
 
-'''
-Each node is a function that transforms shared state
-Nodes are combined via edges to define a DAG
-Define multiagent orchestration as DAG
+class SummarizationGraph:
+    """
+    Multi-agent graph workflow:
+    1. Retrieve relevant docs
+    2. Summarize docs
+    3. Produce final architectural summary
+    """
+    def __init__(self, state: dict):
+        self.state = state
+        self.graph = StateGraph(state.__class__)  # Use the type of the initial state
 
-State is defined as following dict:
+        # Add nodes (nodes are just functions in LangGraph)
+        self.graph.add_node("RetrieveDocs", self._retrieve)
+        self.graph.add_node("SummarizeDocs", self._summarize)
+        self.graph.add_node("ArchitectSummary", self._architect)
 
-state = {
-    "query": "...",
-    "store": FAISS(...),
-    "llm": ChatOllama(...),
-    "docs": [...],
-    "summary": "...",
-    "result": "..."
-}
+        # Define edges (linear execution)
+        self.graph.add_edge(START, "RetrieveDocs")
+        self.graph.add_edge("RetrieveDocs", "SummarizeDocs")
+        self.graph.add_edge("SummarizeDocs", "ArchitectSummary")
+        self.graph.add_edge("ArchitectSummary", END)
 
-'''
+    # Internal wrappers to adapt agent functions
+    def _retrieve(self, state: dict) -> dict:
+        return retrieve_agent(state)
 
-def build_graph():
-    graph = StateGraph(dict)
-    graph.add_node("retrieve", retrieve_agent)
-    graph.add_node("summarize", summarize_agent)
-    graph.add_node("architect", architect_agent)
-    graph.set_entry_point("retrieve")
-    graph.add_edge("retrieve", "summarize")
-    graph.add_edge("summarize", "architect")
-    return graph.compile()
+    def _summarize(self, state: dict) -> dict:
+        return summarize_agent(state)
+
+    def _architect(self, state: dict) -> dict:
+        return architect_agent(state)
+
+    def run(self):
+        """
+        Execute the full agent graph
+        """
+        compiled = self.graph.compile()
+        # compiled is callable with the initial state
+        result = compiled(self.state)
+        return result

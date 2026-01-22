@@ -1,8 +1,10 @@
+gitpython
 langchain
 langgraph
-langchain-community
-faiss-cpu
+gpt4all
+langchain-huggingface
 sentence-transformers
-ollama
-gitpython
-tqdm
+torch
+faiss-cpu
+langchain-text-splitters
+langchain_community

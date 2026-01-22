@@ -1,45 +1,61 @@
+# app/main.py
 import sys
-from ingest import ingest_repo, clone_github_repo
-from vectorstore import save_store, load_store
-from llm import get_llm
-from graph import build_graph
+import tempfile
+from pathlib import Path
+from git import Repo
 
-def ingest_and_run_github(url: str):
-    # Clone GitHub repo
-    repo_path, temp_dir = clone_github_repo(url)
-    
-    # Ingest files
-    docs = ingest_repo(repo_path)
-    store = save_store(docs)
-    
-    print(f"Ingested {len(docs)} files from {url}")
-    
-    # Run summarization graph
-    llm = get_llm()
-    graph = build_graph()
-    result = graph.invoke({
-        "query": "Explain the repository",
-        "store": store,
-        "llm": llm
-    })
-    
-    print("\n===== Repository Summary =====\n")
-    print(result["result"])
-    
-    # Cleanup temporary clone
-    temp_dir.cleanup()
+from vectorstore import VectorStore
+from llm import get_chat_model
+from ingest import load_repo_files
+from graph import SummarizationGraph
+
+def clone_github_repo(url):
+    """Clone the GitHub repo into a temporary directory"""
+    temp_dir = tempfile.TemporaryDirectory()
+    repo_path = Path(temp_dir.name) / "repo"
+    Repo.clone_from(url, repo_path, depth=1)
+    return repo_path, temp_dir
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: main.py github <GitHub-URL>")
-        return
-    
-    cmd = sys.argv[1]
-    if cmd == "github":
-        url = sys.argv[2]
-        ingest_and_run_github(url)
-    else:
-        print(f"Unknown command: {cmd}")
+    if len(sys.argv) < 2:
+        print("Usage: python main.py <github-url>")
+        sys.exit(1)
+
+    repo_url = sys.argv[1]
+
+    # Clone repo
+    repo_path, temp_dir = clone_github_repo(repo_url)
+
+    # Load repo files as LangChain Documents
+    docs = load_repo_files(repo_path)
+
+    # Initialize FAISS VectorStore
+    store = VectorStore()
+    store.load()  # Attempt to load existing index
+    if store.index is None:
+        # Build if no index exists
+        store.build_from_docs(docs)
+
+    # Initialize local LLM (GGML GPT4All)
+    llm = get_chat_model(model_name="ggml-gpt4all-j-v1.3-groovy", temperature=0)
+
+    # Prepare state for multi-agent workflow
+    state = {
+        "query": "Summarize repository structure and explain architecture",
+        "store": store,
+        "llm": llm
+    }
+
+    # Run full agent graph
+    graph = SummarizationGraph(state)
+    result_state = graph.run()
+
+    # Print final summary
+    print("\n=== Repository Summary ===\n")
+    print(result_state["result"])
+
+    # Cleanup temporary repo clone
+    temp_dir.cleanup()
 
 if __name__ == "__main__":
     main()

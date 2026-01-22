@@ -9,3 +9,5 @@ Multiagent system takes user-query, fetches data from FAISS to find relevant chu
 - Llama 3.1 model
 - FAISS vector store
 - Docker
+
+# How to Run

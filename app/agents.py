@@ -1,32 +1,23 @@
-from langchain.schema.messages import HumanMessage
+from langchain.messages import HumanMessage
 
-def retrieve_agent(state):
+def retrieve_agent(state: dict) -> dict:
     query = state["query"]
     store = state["store"]
-    docs = store.similarity_search(query, k=6)
+    docs = store.search(query, k=6)
     return {**state, "docs": docs}
 
-def summarize_agent(state):
+def summarize_agent(state: dict) -> dict:
     llm = state["llm"]
     text = "\n\n".join(
-        f"{d.metadata['path']}:\n{d.page_content[:1500]}"
+        f"{d.metadata.get('path', 'unknown')}:\n{d.page_content[:1500]}"
         for d in state["docs"]
     )
-    summary = llm([
-        HumanMessage(content=f"Summarize the following code:\n{text}")
-    ])
-    return {**state, "summary": summary.content}
+    summary_msg = llm([HumanMessage(content=f"Summarize the following code:\n{text}")])
+    return {**state, "summary": summary_msg.content}
 
-def architect_agent(state):
+def architect_agent(state: dict) -> dict:
     llm = state["llm"]
-    final = llm([
-        HumanMessage(
-            content=f"""
-You are a software architect.
-Using the summary below, explain the repository architecture.
-
-{state['summary']}
-"""
-        )
-    ])
-    return {**state, "result": final.content}
+    final_msg = llm([HumanMessage(
+        content=f"You are a software architect.\nUsing the summary below, explain the repository architecture:\n\n{state['summary']}"
+    )])
+    return {**state, "result": final_msg.content}
